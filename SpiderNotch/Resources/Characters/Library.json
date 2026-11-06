@@ -1,0 +1,553 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "classic",
+      "name": "Classic",
+      "symbol": "sparkles"
+    },
+    {
+      "id": "pets",
+      "name": "Pets",
+      "symbol": "pawprint.fill"
+    },
+    {
+      "id": "farm",
+      "name": "Farm",
+      "symbol": "leaf.fill"
+    },
+    {
+      "id": "forest",
+      "name": "Forest",
+      "symbol": "tree.fill"
+    },
+    {
+      "id": "wild",
+      "name": "Jungle & Savanna",
+      "symbol": "sun.max.fill"
+    },
+    {
+      "id": "water",
+      "name": "Water & Ice",
+      "symbol": "drop.fill"
+    },
+    {
+      "id": "night",
+      "name": "Night & Spooky",
+      "symbol": "moon.stars.fill"
+    },
+    {
+      "id": "fantasy",
+      "name": "Dinos & Fantasy",
+      "symbol": "wand.and.stars"
+    }
+  ],
+  "characters": [
+    {
+      "id": "spider",
+      "name": "Spider",
+      "category": "classic",
+      "image": "spider.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "cat",
+      "name": "Ginger Cat",
+      "category": "pets",
+      "image": "cat.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "kitten",
+      "name": "Gray Kitten",
+      "category": "pets",
+      "image": "kitten.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "puppy",
+      "name": "Puppy",
+      "category": "pets",
+      "image": "puppy.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "shiba",
+      "name": "Shiba",
+      "category": "pets",
+      "image": "shiba.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "bunny",
+      "name": "Bunny",
+      "category": "pets",
+      "image": "bunny.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "hamster",
+      "name": "Hamster",
+      "category": "pets",
+      "image": "hamster.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "mouse",
+      "name": "Mouse",
+      "category": "pets",
+      "image": "mouse.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "cow",
+      "name": "Cow",
+      "category": "farm",
+      "image": "cow.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "pig",
+      "name": "Piglet",
+      "category": "farm",
+      "image": "pig.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "sheep",
+      "name": "Sheep",
+      "category": "farm",
+      "image": "sheep.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "chicken",
+      "name": "Hen",
+      "category": "farm",
+      "image": "chicken.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "chick",
+      "name": "Chick",
+      "category": "farm",
+      "image": "chick.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "duck",
+      "name": "Duck",
+      "category": "farm",
+      "image": "duck.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "fox",
+      "name": "Fox",
+      "category": "forest",
+      "image": "fox.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "bear",
+      "name": "Bear",
+      "category": "forest",
+      "image": "bear.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "panda",
+      "name": "Panda",
+      "category": "forest",
+      "image": "panda.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "raccoon",
+      "name": "Raccoon",
+      "category": "forest",
+      "image": "raccoon.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "deer",
+      "name": "Fawn",
+      "category": "forest",
+      "image": "deer.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "hedgehog",
+      "name": "Hedgehog",
+      "category": "forest",
+      "image": "hedgehog.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "squirrel",
+      "name": "Squirrel",
+      "category": "forest",
+      "image": "squirrel.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "lion",
+      "name": "Lion",
+      "category": "wild",
+      "image": "lion.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "tiger",
+      "name": "Tiger",
+      "category": "wild",
+      "image": "tiger.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "monkey",
+      "name": "Monkey",
+      "category": "wild",
+      "image": "monkey.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "elephant",
+      "name": "Elephant",
+      "category": "wild",
+      "image": "elephant.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "giraffe",
+      "name": "Giraffe",
+      "category": "wild",
+      "image": "giraffe.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "zebra",
+      "name": "Zebra",
+      "category": "wild",
+      "image": "zebra.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "hippo",
+      "name": "Hippo",
+      "category": "wild",
+      "image": "hippo.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "koala",
+      "name": "Koala",
+      "category": "wild",
+      "image": "koala.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "sloth",
+      "name": "Sloth",
+      "category": "wild",
+      "image": "sloth.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "penguin",
+      "name": "Penguin",
+      "category": "water",
+      "image": "penguin.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "frog",
+      "name": "Frog",
+      "category": "water",
+      "image": "frog.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "seal",
+      "name": "Seal",
+      "category": "water",
+      "image": "seal.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "whale",
+      "name": "Whale",
+      "category": "water",
+      "image": "whale.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "octopus",
+      "name": "Octopus",
+      "category": "water",
+      "image": "octopus.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "axolotl",
+      "name": "Axolotl",
+      "category": "water",
+      "image": "axolotl.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "turtle",
+      "name": "Turtle",
+      "category": "water",
+      "image": "turtle.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "bat",
+      "name": "Bat",
+      "category": "night",
+      "image": "bat.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "blackcat",
+      "name": "Black Cat",
+      "category": "night",
+      "image": "blackcat.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "owl",
+      "name": "Owl",
+      "category": "night",
+      "image": "owl.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "ghost",
+      "name": "Ghost",
+      "category": "night",
+      "image": "ghost.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "dino",
+      "name": "Dino",
+      "category": "fantasy",
+      "image": "dino.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "triceratops",
+      "name": "Triceratops",
+      "category": "fantasy",
+      "image": "triceratops.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "dragon",
+      "name": "Dragon",
+      "category": "fantasy",
+      "image": "dragon.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "unicorn",
+      "name": "Unicorn",
+      "category": "fantasy",
+      "image": "unicorn.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    },
+    {
+      "id": "alien",
+      "name": "Alien",
+      "category": "fantasy",
+      "image": "alien.png",
+      "faces": [
+        "open",
+        "blink",
+        "happy"
+      ]
+    }
+  ]
+}

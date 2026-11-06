@@ -1,0 +1,80 @@
+# Runs on every push and pull request: checks, tests, and a universal build.
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    tags-ignore: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: macOS — test and build
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Sparkle download
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: sparkle-${{ hashFiles('scripts/release.conf') }}
+
+      - name: Tools
+        run: |
+          sw_vers
+          xcrun swiftc --version
+          brew install shellcheck >/dev/null 2>&1 || true
+
+      - name: Tests
+        run: bash scripts/test.sh
+
+      - name: Build universal app (Apple silicon + Intel)
+        env:
+          REQUIRE_SPARKLE: "yes"
+        run: bash scripts/build.sh arm64 x86_64
+
+      - name: Smoke test (the app starts and keeps running)
+        run: bash scripts/smoke-test.sh build/SpiderNotch.app
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
+
+      - name: Upload app (unsigned test build, 14 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpiderNotch-test-build
+          path: build/SpiderNotch.app
+          retention-days: 14
+
+  # Placeholder for the future Windows app (see docs/ARCHITECTURE.md).
+  # Turn it on with the repository variable ENABLE_WINDOWS = true once a
+  # windows/ folder with a .NET solution exists.
+  windows:
+    name: Windows — build (future)
+    if: vars.ENABLE_WINDOWS == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Build and test
+        shell: pwsh
+        run: |
+          if (-not (Test-Path windows)) { Write-Host "No windows/ folder yet."; exit 0 }
+          dotnet test windows --configuration Release

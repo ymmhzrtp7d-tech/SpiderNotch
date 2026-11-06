@@ -1,0 +1,39 @@
+# ── Build output (made by the scripts; never commit) ─────────────────
+build/
+dist/
+build.log
+# Sparkle is downloaded into vendor/ by scripts/fetch-sparkle.sh
+vendor/
+*.dmg
+*.app/
+__pycache__/
+*.pyc
+
+# ── Secrets: signing keys, certificates, passwords ───────────────────
+# Keep these in your Keychain / password manager / GitHub secrets only.
+*.p12
+*.pfx
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*.provisionprofile
+*.pem
+*.key
+*_private_key*
+*private-key*
+sparkle_*key*
+.env
+.env.*
+*.secret
+
+# ── Mac and Xcode clutter ────────────────────────────────────────────
+.DS_Store
+xcuserdata/
+*.xcuserstate
+DerivedData/
+*.xcworkspace/xcuserdata/
+
+# ── Editors ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp

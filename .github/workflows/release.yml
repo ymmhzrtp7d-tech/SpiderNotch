@@ -1,0 +1,149 @@
+# Publishes a GitHub Release when the VERSION file changes on main
+# (or when started by hand from the Actions tab).
+#
+# Steps: tests → universal build → sign (Developer ID, if set up) → notarize
+# (if set up) → .dmg + .zip → EdDSA-sign the update → appcast.xml →
+# GitHub Release with the notes from CHANGELOG.md.
+#
+# Versions with a dash (1.3.0-beta.1) become pre-releases: they're not
+# "latest", so the update feed for everyone keeps pointing at the last stable.
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   SPARKLE_PRIVATE_KEY          required: the update signing key (docs/RELEASING.md)
+#   MACOS_CERTIFICATE_P12        optional: Developer ID Application certificate, base64
+#   MACOS_CERTIFICATE_PASSWORD   optional: its export password
+#   NOTARY_APPLE_ID, NOTARY_PASSWORD, NOTARY_TEAM_ID   optional: notarization
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(tr -d ' \r\n' < VERSION)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          python3 scripts/release_tools.py check-version "$VERSION"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION already exists; nothing to do."
+            echo "exists=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=no" >> "$GITHUB_OUTPUT"
+          fi
+          case "$VERSION" in *-*) echo "prerelease=yes" >> "$GITHUB_OUTPUT" ;; *) echo "prerelease=no" >> "$GITHUB_OUTPUT" ;; esac
+
+      - name: Cache Sparkle download
+        if: steps.version.outputs.exists == 'no'
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: sparkle-${{ hashFiles('scripts/release.conf') }}
+
+      - name: Tests
+        if: steps.version.outputs.exists == 'no'
+        run: bash scripts/test.sh
+
+      - name: Import Developer ID certificate (optional)
+        if: steps.version.outputs.exists == 'no'
+        env:
+          P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$P12" ]; then
+            echo "No Developer ID certificate: the app will be ad-hoc signed (users click Open Anyway once)."
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - name: Build, sign and package
+        id: build
+        if: steps.version.outputs.exists == 'no'
+        env:
+          CI: "true"
+          REQUIRE_SPARKLE: "yes"
+          REQUIRE_UPDATE_SIGNATURE: "yes"
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+        run: bash "Make Release.command"
+
+      - name: Smoke test
+        if: steps.version.outputs.exists == 'no'
+        run: bash scripts/smoke-test.sh build/release/SpiderNotch.app
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-build-log
+          path: build.log
+          if-no-files-found: ignore
+
+      - name: Publish GitHub Release
+        if: steps.version.outputs.exists == 'no'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DIR: ${{ steps.build.outputs.dir }}
+          NOTARIZED: ${{ steps.build.outputs.notarized }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          NOTES="$RUNNER_TEMP/notes.md"
+          {
+            python3 scripts/release_tools.py notes "$VERSION"
+            echo
+            echo "---"
+            echo
+            echo "**Download:** \`SpiderNotch-$VERSION.dmg\` below. Open it and drag SpiderNotch into Applications."
+            echo "Works on macOS 14 Sonoma or newer, on Apple silicon and Intel Macs."
+            echo
+            echo "**Already using SpiderNotch?** It updates itself: spider menu → *Check for Updates…*"
+            if [ "$NOTARIZED" != "yes" ]; then
+              echo
+              echo "**First launch:** macOS says it can't verify the app (it isn't from the App Store)."
+              echo "Open *System Settings → Privacy & Security* and click **Open Anyway** next to SpiderNotch. Only needed once."
+              echo "See [Troubleshooting](https://github.com/$GITHUB_REPOSITORY/blob/main/docs/TROUBLESHOOTING.md)."
+            fi
+          } > "$NOTES"
+          FLAGS=()
+          if [ "$PRERELEASE" = "yes" ]; then FLAGS+=(--prerelease); else FLAGS+=(--latest); fi
+          gh release create "v$VERSION" \
+            --title "SpiderNotch $VERSION" \
+            --notes-file "$NOTES" \
+            --target "$GITHUB_SHA" \
+            "${FLAGS[@]}" \
+            "$DIR/SpiderNotch-$VERSION.dmg" \
+            "$DIR/SpiderNotch-$VERSION.zip" \
+            "$DIR/appcast.xml" \
+            "$DIR/SHA256SUMS.txt" \
+            "$DIR/How to Install SpiderNotch.txt#How-to-Install-SpiderNotch.txt"
