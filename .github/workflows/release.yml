@@ -124,7 +124,7 @@ jobs:
             echo
             echo "---"
             echo
-            echo "**Download:** \`SpiderNotch-$VERSION.dmg\` below. Open it and drag SpiderNotch into Applications."
+            echo "**Download:** [SpiderNotch.dmg](https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/SpiderNotch.dmg). Open it and drag SpiderNotch into Applications."
             echo "Works on macOS 14 Sonoma or newer, on Apple silicon and Intel Macs."
             echo
             echo "**Already using SpiderNotch?** It updates itself: spider menu → *Check for Updates…*"
@@ -135,6 +135,9 @@ jobs:
               echo "See [Troubleshooting](https://github.com/$GITHUB_REPOSITORY/blob/main/docs/TROUBLESHOOTING.md)."
             fi
           } > "$NOTES"
+          # A copy with a fixed name, so this link always downloads the newest version:
+          # https://github.com/<owner>/SpiderNotch/releases/latest/download/SpiderNotch.dmg
+          cp "$DIR/SpiderNotch-$VERSION.dmg" "$RUNNER_TEMP/SpiderNotch.dmg"
           FLAGS=()
           if [ "$PRERELEASE" = "yes" ]; then FLAGS+=(--prerelease); else FLAGS+=(--latest); fi
           gh release create "v$VERSION" \
@@ -142,6 +145,7 @@ jobs:
             --notes-file "$NOTES" \
             --target "$GITHUB_SHA" \
             "${FLAGS[@]}" \
+            "$RUNNER_TEMP/SpiderNotch.dmg" \
             "$DIR/SpiderNotch-$VERSION.dmg" \
             "$DIR/SpiderNotch-$VERSION.zip" \
             "$DIR/appcast.xml" \

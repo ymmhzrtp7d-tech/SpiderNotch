@@ -2,8 +2,8 @@
 
 ## Installing
 
-1. Download `SpiderNotch-<version>.dmg` from
-   [the latest release](https://github.com/ymmhzrtp7d-tech/SpiderNotch/releases/latest).
+1. Download [SpiderNotch.dmg](https://github.com/ymmhzrtp7d-tech/SpiderNotch/releases/latest/download/SpiderNotch.dmg)
+   (always the newest version).
 2. Open it and drag **SpiderNotch** onto **Applications**.
 3. Open **Applications** and double-click **SpiderNotch**.
 4. Look for the little spider in the menu bar, then move the mouse to the notch.

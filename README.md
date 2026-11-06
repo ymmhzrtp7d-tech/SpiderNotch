@@ -18,6 +18,11 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/ymmhzrtp7d-tech/SpiderNotch/releases/latest/download/SpiderNotch.dmg"><b>⬇︎ Download SpiderNotch for Mac (.dmg)</b></a><br>
+  <sub>macOS 14 or newer · Apple silicon and Intel · free and open source</sub>
+</p>
+
+<p align="center">
   <img src="docs/images/characters.png" alt="The 46 built-in characters" width="760">
 </p>
 
@@ -33,7 +38,7 @@
 
 ## Install
 
-1. Download **`SpiderNotch-<version>.dmg`** from the [latest release](https://github.com/ymmhzrtp7d-tech/SpiderNotch/releases/latest).
+1. **[Download SpiderNotch.dmg](https://github.com/ymmhzrtp7d-tech/SpiderNotch/releases/latest/download/SpiderNotch.dmg)** (always the newest version; older versions are on the [Releases page](https://github.com/ymmhzrtp7d-tech/SpiderNotch/releases)).
 2. Open it and drag **SpiderNotch** onto **Applications**.
 3. Open SpiderNotch from your Applications folder. A little spider appears in the menu bar. Move your mouse to the notch and say hi.
 
