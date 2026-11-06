@@ -187,14 +187,17 @@ step "Zipping the app…"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$OUT/$ZIP_NAME" >> "$LOG" 2>&1 \
   || fail "Couldn't zip the app."
 
-step "Packing up the source code…"
-PARENT_DIR="$(dirname "$PROJECT_DIR")"
-FOLDER="$(basename "$PROJECT_DIR")"
-(
-  cd "$PARENT_DIR" && zip -qrX "$OUT/$SOURCE_NAME" "$FOLDER" \
-    -x "$FOLDER/build/*" "$FOLDER/dist/*" "$FOLDER/vendor/*" "$FOLDER/build.log" "$FOLDER/.git/*" \
-       "*.DS_Store" "*/xcuserdata/*"
-) >> "$LOG" 2>&1 || fail "Couldn't zip the source code."
+# GitHub adds its own source downloads to every release, so CI skips this.
+if [ "${CI:-}" != "true" ]; then
+  step "Packing up the source code…"
+  PARENT_DIR="$(dirname "$PROJECT_DIR")"
+  FOLDER="$(basename "$PROJECT_DIR")"
+  (
+    cd "$PARENT_DIR" && zip -qrX "$OUT/$SOURCE_NAME" "$FOLDER" \
+      -x "$FOLDER/build/*" "$FOLDER/dist/*" "$FOLDER/vendor/*" "$FOLDER/build.log" "$FOLDER/.git/*" \
+         "*.DS_Store" "*/xcuserdata/*"
+  ) >> "$LOG" 2>&1 || fail "Couldn't zip the source code."
+fi
 
 # ── 6. Update signature and feed (appcast.xml) ──────────────────────
 # Sparkle installs the .zip. It must carry an EdDSA signature made with the
@@ -239,7 +242,8 @@ fi
 
 # ── 7. Checksums ────────────────────────────────────────────────────
 (
-  cd "$OUT" && shasum -a 256 "$DMG_NAME" "$ZIP_NAME" "$SOURCE_NAME" > SHA256SUMS.txt
+  cd "$OUT" && shasum -a 256 "$DMG_NAME" "$ZIP_NAME" > SHA256SUMS.txt \
+    && if [ -f "$SOURCE_NAME" ]; then shasum -a 256 "$SOURCE_NAME" >> SHA256SUMS.txt; fi
 ) || fail "Couldn't write the checksums."
 echo "Release files in: $OUT" >> "$LOG"
 # Tell GitHub Actions where the files are.
