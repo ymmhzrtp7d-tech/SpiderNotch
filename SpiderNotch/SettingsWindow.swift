@@ -267,6 +267,8 @@ struct SettingsRootView: View {
                     AppearanceSection(model: model)
                 case "nowPlaying":
                     NowPlayingSection(model: model)
+                case "cocoon":
+                    CocoonSection()
                 case "general":
                     GeneralSection(model: model)
                 case "updates":
@@ -298,8 +300,9 @@ struct SettingsRootView: View {
             SidebarButton(title: "My Stickers", symbol: "face.smiling", id: "stickers", selection: $section)
             SidebarButton(title: "Appearance", symbol: "paintbrush.pointed.fill", id: "appearance", selection: $section)
             SidebarButton(title: "Now Playing", symbol: "music.note", id: "nowPlaying", selection: $section)
+            SidebarButton(title: "Cocoon", symbol: "circle.hexagongrid.fill", id: "cocoon", selection: $section)
             SidebarButton(title: "General", symbol: "gearshape.fill", id: "general", selection: $section)
-            SidebarButton(title: "Updates", symbol: "arrow.triangle.2.circlepath", id: "updates", selection: $section)
+            SidebarButton(title: "Update Center", symbol: "arrow.triangle.2.circlepath", id: "updates", selection: $section)
             SidebarButton(title: "About", symbol: "info.circle.fill", id: "about", selection: $section)
             Spacer()
             Text("Hover over the notch to say hi.")

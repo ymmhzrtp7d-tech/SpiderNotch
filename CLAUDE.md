@@ -13,7 +13,9 @@ Sparkle 2. The owner builds with **only the Command Line Tools** (no Xcode).
 
 ## Golden rules
 
-1. **Don't break existing features.** Hover/drop animation, click → island app
+1. **Don't break existing features.** Hovering always opens the island (the
+   Cocoon) whether or not media plays: `HoverIsland.choose` in
+   `NotchController.swift` decides, and the tests pin it down. Hover/drop animation, click → island app
    switcher, Now Playing (all sources), characters, photo stickers, settings,
    launch at login, updates. Change only what the task needs; no drive-by
    refactors or renames.
@@ -39,6 +41,7 @@ Sparkle 2. The owner builds with **only the Command Line Tools** (no Xcode).
 bash scripts/test.sh                  # all checks (plist/JSON lint, shell parse, Python + Swift tests)
 bash scripts/build.sh arm64 x86_64    # build build/SpiderNotch.app (universal), no install
 bash scripts/smoke-test.sh build/SpiderNotch.app   # launches it for 8 s
+bash scripts/render-previews.sh /tmp/previews      # island/Cocoon/update screens as PNGs (safe temp data)
 bash "Install SpiderNotch.command"    # build for this Mac, install to /Applications, open
 bash "Make Release.command"           # full release files into dist/ (local)
 bash scripts/bump-version.sh X.Y.Z    # set a new version (needs a CHANGELOG section)
@@ -56,7 +59,9 @@ Build errors go to `build.log` (full compiler output). Read it when a build fail
 | Animation | `StageLayout.swift` (pure math), `SpiderStageView.swift` (Core Animation) |
 | Characters | `CharacterLibrary.swift` + `Resources/Characters/Library.json` and PNG strips |
 | Stickers | `StickerStore.swift`, `StickerArt.swift`, `PhotoEditor.swift`, `PhotoSticker.swift`, `PhotoImporter.swift` |
-| Island | `IslandController.swift`, `IslandView.swift`, `IslandPanel.swift`, `AppSwitcherView.swift`, `RunningApps.swift`, `NowPlayingView.swift` |
+| Island | `IslandController.swift`, `IslandView.swift`, `IslandPanel.swift`, `AppSwitcherView.swift`, `RunningApps.swift`, `NowPlayingView.swift`, `NotchHandle.swift` (marker on screens without a notch) |
+| Cocoon (file hub) | `CocoonStore.swift` (bookmarks, Cocoon.json), `CocoonView.swift` (model + UI, drop zones), `CocoonActions.swift` (open, Quick Look, AirDrop, file picker), `CocoonSettings.swift`, `FileDragWatcher.swift` |
+| Update Center | `UpdateCenter.swift` (release info from GitHub, reminders), `UpdateAnnouncementPanel.swift` (corner card) |
 | Now Playing | `MediaCenter.swift` (merges sources), `MediaSources.swift`, `SystemNowPlaying.swift` + `MediaHelper/` (private MediaRemote via `/usr/bin/perl`), `ScriptRunner.swift`, `SystemVolume.swift` |
 | Settings window | `SettingsWindow.swift` (window, sidebar, General, `Alerts`), `SettingsSections.swift` (Characters, Stickers, Appearance, Now Playing), `AboutSections.swift` (Updates, About) |
 | Saved settings, app facts, links | `Preferences.swift` (`Preferences`, `SpiderSettings`, `LoginItem`, `AppInfo`) |

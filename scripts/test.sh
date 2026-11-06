@@ -37,28 +37,10 @@ python3 -m unittest discover -s Tests -p 'test_*.py' -v 2>&1 | tail -n 15 || bad
 section "Swift unit tests"
 SDK="$(xcrun --sdk macosx --show-sdk-path)"
 mkdir -p build/tests
-APP_SOURCES=()
-for f in SpiderNotch/*.swift; do
-  # The updater needs Sparkle, which the tests don't link.
-  [ "$(basename "$f")" = "Updater.swift" ] && continue
-  APP_SOURCES+=("$f")
-done
-cat > build/tests/UpdaterStub.swift <<'SWIFT'
-import Foundation
-@MainActor final class Updater: ObservableObject {
-    static let shared = Updater()
-    @Published var isAvailable = false
-    @Published var canCheckForUpdates = false
-    @Published var lastCheck: Date?
-    var automaticallyChecks = false
-    var automaticallyDownloads = false
-    func start() {}
-    func checkForUpdates() {}
-}
-SWIFT
+# Updater.swift builds without Sparkle here (#if canImport), so every app file is tested as is.
 if xcrun swiftc -swift-version 5 -parse-as-library -suppress-warnings -D SPIDERNOTCH_TESTS \
      -module-name SpiderNotch -target "$(uname -m)-apple-macos14.0" -sdk "$SDK" \
-     -o build/tests/SpiderNotchTests "${APP_SOURCES[@]}" build/tests/UpdaterStub.swift Tests/SpiderNotchTests.swift; then
+     -o build/tests/SpiderNotchTests SpiderNotch/*.swift Tests/SpiderNotchTests.swift; then
   build/tests/SpiderNotchTests || bad "Swift unit tests"
 else
   bad "Swift unit tests didn't compile"

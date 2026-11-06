@@ -7,6 +7,7 @@
 //
 
 import AppKit
+import Combine
 
 // The test runner (Tests/) builds every file with SPIDERNOTCH_TESTS and brings its own @main.
 #if !SPIDERNOTCH_TESTS
@@ -33,6 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notch: NotchController?
     private var statusItem: NSStatusItem?
     private var enabledMenuItem: NSMenuItem?
+    private var cocoonMenuItem: NSMenuItem?
+    private var updateMenuItem: NSMenuItem?
+    private var updateObserver: AnyCancellable?
     private var settingsWindow: SettingsWindowController?
     private var lastLaunchAtLogin = false
 
@@ -62,6 +66,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         notch.start()
         Updater.shared.start()
+        observeUpdates()
+        UpdateCenter.shared.showWhatsNewIfUpdated()
+        NotificationCenter.default.addObserver(forName: .spiderNotchOpenSettings, object: nil, queue: .main) { [weak self] note in
+            let section = note.object as? String
+            MainActor.assumeIsolated {
+                self?.showSettings(section: section)
+            }
+        }
+        runTestingHooks()
 
         // The very first time the app runs, the character says hi so you can see it works.
         let defaults = UserDefaults.standard
@@ -89,6 +102,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let titleItem = NSMenuItem(title: "SpiderNotch \(AppInfo.version)", action: nil, keyEquivalent: "")
         titleItem.isEnabled = false
         menu.addItem(titleItem)
+
+        // Shown only while an update is waiting.
+        let availableItem = NSMenuItem(title: "Update Available…", action: #selector(installUpdate(_:)), keyEquivalent: "")
+        availableItem.target = self
+        availableItem.isHidden = true
+        menu.addItem(availableItem)
+        updateMenuItem = availableItem
         menu.addItem(NSMenuItem.separator())
 
         let enabledItem = NSMenuItem(title: "Enabled", action: #selector(toggleEnabled(_:)), keyEquivalent: "")
@@ -99,6 +119,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let dropItem = NSMenuItem(title: "Say Hi Now", action: #selector(dropNow(_:)), keyEquivalent: "")
         dropItem.target = self
         menu.addItem(dropItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let cocoonItem = NSMenuItem(title: "Open Cocoon", action: #selector(openCocoon(_:)), keyEquivalent: "")
+        cocoonItem.target = self
+        cocoonItem.toolTip = "Your files, in the island at the notch"
+        menu.addItem(cocoonItem)
+        cocoonMenuItem = cocoonItem
 
         menu.addItem(NSMenuItem.separator())
 
@@ -139,6 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func refreshMenu() {
         let isEnabled = UserDefaults.standard.bool(forKey: Preferences.Key.enabled)
         enabledMenuItem?.state = isEnabled ? .on : .off
+        cocoonMenuItem?.isHidden = !UserDefaults.standard.bool(forKey: Preferences.Key.cocoonEnabled)
         statusItem?.button?.appearsDisabled = !isEnabled
     }
 
@@ -153,6 +182,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notch?.showDemo()
     }
 
+    @objc private func openCocoon(_ sender: Any?) {
+        // Let the menu finish closing first, so its click doesn't close the island.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            self?.notch?.openCocoon(explicit: true)
+        }
+    }
+
     @objc private func openSettings(_ sender: Any?) {
         showSettings(section: nil)
     }
@@ -163,6 +200,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openStickers(_ sender: Any?) {
         showSettings(section: "stickers")
+    }
+
+    @objc private func installUpdate(_ sender: Any?) {
+        UpdateCenter.shared.updateNow()
+    }
+
+    /// The menu bar dot and the "Update Available" menu item follow the Update Center.
+    private func observeUpdates() {
+        updateObserver = UpdateCenter.shared.$available
+            .receive(on: RunLoop.main)
+            .sink { [weak self] release in
+                MainActor.assumeIsolated {
+                    guard let self = self else { return }
+                    self.statusItem?.button?.image = MenuBarIcon.make(badge: release != nil)
+                    if let release = release {
+                        let kind = ReleaseNotes.kind(from: AppInfo.version, to: release.version)
+                        let title = NSMutableAttributedString(string: "Update Available: \(release.version)…",
+                                                              attributes: [.font: NSFont.menuFont(ofSize: 0).bold])
+                        title.append(NSAttributedString(string: "  \(kind.label)",
+                                                        attributes: [.font: NSFont.menuFont(ofSize: 11),
+                                                                     .foregroundColor: NSColor.secondaryLabelColor]))
+                        self.updateMenuItem?.attributedTitle = title
+                        self.updateMenuItem?.isHidden = false
+                        self.statusItem?.button?.toolTip = "SpiderNotch: version \(release.version) is available"
+                    } else {
+                        self.updateMenuItem?.isHidden = true
+                        self.statusItem?.button?.toolTip = "SpiderNotch"
+                    }
+                }
+            }
+    }
+
+    /// Launch options used by the automated UI checks (scripts/ui-check.sh):
+    /// -SpiderNotchOpenCocoon YES opens the Cocoon, -SpiderNotchOpenSettings <section> opens Settings.
+    private func runTestingHooks() {
+        let defaults = UserDefaults.standard
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-SpiderNotchOpenCocoon") {
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                self?.notch?.openCocoon(explicit: true)
+            }
+        }
+        if args.contains("-SpiderNotchOpenSettings"), let section = defaults.string(forKey: "SpiderNotchOpenSettings") {
+            showSettings(section: section)
+        }
+        if args.contains("-SpiderNotchShowAnnouncement") {
+            let notes = ReleaseNotes.bundledNotes() ?? "- Bug fixes and improvements."
+            let release = ReleaseInfo(version: "9.9.9", title: "SpiderNotch 9.9.9", date: Date(), notes: notes,
+                                      url: AppInfo.releasesURL, isPrerelease: false)
+            UpdateAnnouncementPanel.shared.show(.available(release, kind: ReleaseNotes.kind(from: AppInfo.version, to: "9.9.9")), after: 1)
+        }
     }
 
     @objc private func checkForUpdates(_ sender: Any?) {

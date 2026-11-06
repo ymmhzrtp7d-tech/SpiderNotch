@@ -33,6 +33,18 @@ enum Preferences {
         // Now Playing (1.2)
         static let nowPlaying = "nowPlayingEnabled"
 
+        // Cocoon, the file hub (1.4)
+        static let cocoonEnabled = "cocoonEnabled"
+        static let cocoonOpenOnHover = "cocoonOpenOnHover"
+        static let cocoonRecentHours = "cocoonRecentHours"
+        static let cocoonShowDownloads = "cocoonShowDownloads"
+
+        // Update announcements (1.4)
+        static let updateNotify = "updateNotifyEnabled"
+        static let updateRemindAfter = "updateRemindAfter"
+        static let updateLastSeenVersion = "updateLastSeenVersion"
+        static let updateAnnouncedVersion = "updateAnnouncedVersion"
+
         // Which part of the Settings window was open last.
         static let settingsSection = "settingsSection"
         static let libraryCategory = "libraryCategory"
@@ -53,6 +65,11 @@ enum Preferences {
         static let border = BorderStyle.white.rawValue
         static let position = StickerPosition.center.rawValue
         static let nowPlaying = true
+        static let cocoonEnabled = true
+        static let cocoonOpenOnHover = true
+        static let cocoonRecentHours: Double = 24
+        static let cocoonShowDownloads = false
+        static let updateNotify = true
     }
 
     static func registerDefaults() {
@@ -71,6 +88,11 @@ enum Preferences {
             Key.border: Default.border,
             Key.position: Default.position,
             Key.nowPlaying: Default.nowPlaying,
+            Key.cocoonEnabled: Default.cocoonEnabled,
+            Key.cocoonOpenOnHover: Default.cocoonOpenOnHover,
+            Key.cocoonRecentHours: Default.cocoonRecentHours,
+            Key.cocoonShowDownloads: Default.cocoonShowDownloads,
+            Key.updateNotify: Default.updateNotify,
             Key.settingsSection: "library",
             Key.libraryCategory: "all",
         ])
@@ -274,6 +296,11 @@ enum AppInfo {
 
     /// SpiderNotch's own folder in ~/Library/Application Support.
     static var supportFolder: URL {
+        // Automated UI checks run with their own folder, so they never touch your stickers or Cocoon.
+        if ProcessInfo.processInfo.arguments.contains("-SpiderNotchSupportFolder"),
+           let override = UserDefaults.standard.string(forKey: "SpiderNotchSupportFolder") {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
         return base.appendingPathComponent("SpiderNotch", isDirectory: true)

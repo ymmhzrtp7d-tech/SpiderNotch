@@ -9,6 +9,29 @@ the release notes and as the "What's new" text in the update window.
 
 ## Unreleased
 
+## 1.4.0 (6 November 2026)
+
+- **The island is always there for you.** Hovering the notch now always opens
+  the island, even when nothing is playing and Music, Spotify and your browsers
+  are closed. Before, it only appeared while music or a video played. Media
+  controls are now an extra: when something plays, the island opens on Now
+  Playing with a tab for your files, and when it stops, the island switches to
+  your files instead of going empty.
+- **Cocoon, your file hub in the notch.** Drag files from Finder onto the notch
+  and drop them on **Keep** (recent files), **Pin** (stays for good) or
+  **AirDrop**. Open, preview (Quick Look), reveal in Finder, copy, pin, AirDrop
+  or remove them from the island. Use **Add Files…** to pick files, and
+  **AirDrop…** works even with nothing selected: choose a file and the standard
+  AirDrop window opens. Your files never move: the Cocoon only keeps a link.
+  Settings → Cocoon: how long recent files stay, and Downloads.
+- **Screens without a notch** (external displays, a closed lid) show a small
+  handle at the top of the screen, so you always know where to hover.
+- **Update Center** in Settings: your version, the newest version, what's new
+  and the release history. When an update is out, a small card in the corner
+  and a dot on the menu bar spider tell you, with **Update Now** and **Remind Me
+  Later**. After updating, a "What's new" card shows the changes. Updates keep
+  your settings, stickers and Cocoon files.
+
 ## 1.3.0 (6 November 2026)
 
 - **Automatic updates**: SpiderNotch now checks for new versions once a day

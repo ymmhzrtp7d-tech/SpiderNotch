@@ -161,6 +161,9 @@ build_app() {
   ditto "$SOURCE_DIR/Resources" "$APP/Contents/Resources" >> "$LOG" 2>&1 || fail "Couldn't copy the pictures."
   cp "$SOURCE_DIR/MediaHelper/now-playing.pl" "$APP/Contents/Resources/now-playing.pl" \
     || fail "Couldn't copy the Now Playing helper."
+  # This version's notes from CHANGELOG.md, for the "What's new" card after an update.
+  python3 "$PROJECT_DIR/scripts/release_tools.py" notes "$VERSION" > "$APP/Contents/Resources/WhatsNew.md" 2>> "$LOG" \
+    || rm -f "$APP/Contents/Resources/WhatsNew.md"
   printf 'APPL????' > "$APP/Contents/PkgInfo"
   "$PLISTBUDDY" -c "Set :CFBundleShortVersionString $VERSION" \
                 -c "Set :CFBundleVersion $BUILD_NUMBER" \

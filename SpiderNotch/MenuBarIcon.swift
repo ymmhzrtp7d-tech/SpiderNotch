@@ -10,7 +10,8 @@
 import AppKit
 
 enum MenuBarIcon {
-    static func make() -> NSImage {
+    /// - Parameter badge: adds a small dot (an update is available).
+    static func make(badge: Bool = false) -> NSImage {
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
             NSColor.black.set()
 
@@ -49,10 +50,25 @@ enum MenuBarIcon {
             NSBezierPath(ovalIn: NSRect(x: 6.6, y: 8.3, width: 1.7, height: 2.1)).fill()
             NSBezierPath(ovalIn: NSRect(x: 9.7, y: 8.3, width: 1.7, height: 2.1)).fill()
             NSGraphicsContext.current?.compositingOperation = .sourceOver
+
+            if badge {
+                // A dot in the top-right corner, with a little gap around it.
+                NSGraphicsContext.current?.compositingOperation = .clear
+                NSBezierPath(ovalIn: NSRect(x: 11.6, y: 11.6, width: 7, height: 7)).fill()
+                NSGraphicsContext.current?.compositingOperation = .sourceOver
+                NSBezierPath(ovalIn: NSRect(x: 12.6, y: 12.6, width: 5.2, height: 5.2)).fill()
+            }
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = "SpiderNotch"
+        image.accessibilityDescription = badge ? "SpiderNotch, update available" : "SpiderNotch"
         return image
+    }
+}
+
+extension NSFont {
+    /// The same font in bold.
+    var bold: NSFont {
+        NSFontManager.shared.convert(self, toHaveTrait: .boldFontMask)
     }
 }

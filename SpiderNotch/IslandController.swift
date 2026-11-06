@@ -2,7 +2,7 @@
 //  IslandController.swift
 //  SpiderNotch
 //
-//  Opens and closes the Dynamic Island, in one of two modes:
+//  Opens and closes the island, in one of three modes:
 //
 //  • The app switcher (when you click the character). It closes after you
 //    pick an app, when you click outside it, when you press Esc, or a moment
@@ -10,6 +10,9 @@
 //  • Now Playing (when you hover the notch while media is playing). It opens
 //    without taking the keyboard focus from your app, and NotchController
 //    closes it when the mouse leaves.
+//  • The Cocoon (files you keep handy): opens on hover when it has files, or
+//    when you drag files to the notch. It stays open while you use it, or as
+//    long as you like with its pin button.
 //
 
 import AppKit
@@ -26,6 +29,25 @@ final class IslandController: NSObject {
     var onClickOutsideIsland: (@MainActor (NSPoint) -> Void)?
     /// You clicked the song or video: open where it's playing.
     var onOpenMediaSource: (@MainActor (MediaSession) -> Void)?
+    /// Whether to show the Now Playing ⟷ Cocoon tabs beside the notch.
+    var tabsAvailable: (@MainActor () -> Bool)?
+
+    /// True while the island must stay open even if the cursor wanders off
+    /// (dragging a slider, dragging files, or the Cocoon is pinned open).
+    var holdsOpen: Bool {
+        guard isOpen, !isClosing else { return false }
+        if isInteracting { return true }
+        if mode == .files {
+            let cocoon = CocoonModel.shared
+            return cocoon.pinnedOpen || cocoon.stayUntilClickOutside || cocoon.isDraggingFiles || cocoon.draggingID != nil
+        }
+        return false
+    }
+
+    /// You clicked inside the Cocoon: it waits longer before closing by itself.
+    var isEngaged: Bool {
+        isOpen && mode == .files && CocoonModel.shared.engaged
+    }
 
     private let apps = RunningApps()
     private var panel: IslandPanel?
@@ -85,19 +107,72 @@ final class IslandController: NSObject {
 
     /// Opens Now Playing from the notch, without taking the focus from your app.
     func openNowPlaying(geometry: NotchGeometry) {
-        guard !isOpen else { return }
-        apps.reload()
-        // Room for the app switcher too, so the island can switch without moving its window.
-        let appsMetrics = IslandMetrics(geometry: geometry, contentSize: IslandMetrics.appsContentSize(appCount: apps.apps.count))
-        let newMetrics = IslandMetrics(geometry: geometry, contentSize: NowPlayingMetrics.contentSize,
-                                       minimumPanelSize: appsMetrics.panelFrame.size)
-        present(mode: .nowPlaying, geometry: geometry, metrics: newMetrics)
-        refreshNowPlaying()
+        openHover(.nowPlaying, geometry: geometry)
     }
 
-    /// From Now Playing to the app switcher (you clicked the character).
+    /// Opens the Cocoon. `explicit` (from the menu) takes the keyboard and keeps it
+    /// open until you click outside; otherwise it behaves like Now Playing on hover.
+    func openFiles(geometry: NotchGeometry, explicit: Bool = false) {
+        if isOpen {
+            if mode != .files { switchHover(to: .files) }
+        } else {
+            openHover(.files, geometry: geometry)
+        }
+        if explicit {
+            CocoonModel.shared.engaged = true
+            NSApp.activate()
+            panel?.makeKey()
+        }
+    }
+
+    /// The window is big enough for every mode, so the island can switch
+    /// between them without its window moving.
+    private func hoverMetrics(for mode: IslandMode, geometry: NotchGeometry) -> IslandMetrics {
+        let sizes = [IslandMetrics.appsContentSize(appCount: apps.apps.count), NowPlayingMetrics.contentSize, CocoonMetrics.contentSize]
+        var room = CGSize.zero
+        for size in sizes {
+            let frame = IslandMetrics(geometry: geometry, contentSize: size).panelFrame.size
+            room.width = max(room.width, frame.width)
+            room.height = max(room.height, frame.height)
+        }
+        let content = mode == .files ? CocoonMetrics.contentSize : NowPlayingMetrics.contentSize
+        return IslandMetrics(geometry: geometry, contentSize: content, minimumPanelSize: room)
+    }
+
+    private func openHover(_ mode: IslandMode, geometry: NotchGeometry) {
+        guard !isOpen else { return }
+        apps.reload()
+        present(mode: mode, geometry: geometry, metrics: hoverMetrics(for: mode, geometry: geometry))
+        if mode == .nowPlaying {
+            refreshNowPlaying()
+        }
+    }
+
+    /// Switches between Now Playing and the Cocoon (the tabs beside the notch).
+    func switchHover(to newMode: IslandMode) {
+        guard isOpen, !isClosing, newMode != mode, newMode != .apps, mode != .apps,
+              let geometry = geometry, let view = islandView
+        else { return }
+        let newMetrics = hoverMetrics(for: newMode, geometry: geometry)
+        mode = newMode
+        isInteracting = false
+        metrics = newMetrics
+        panel?.setFrame(newMetrics.panelFrame, display: false)
+        view.switchMode(to: newMode, metrics: newMetrics)
+        if newMode == .nowPlaying {
+            refreshNowPlaying()
+        }
+    }
+
+    /// Re-checks whether the Now Playing ⟷ Cocoon tabs should show.
+    func refreshTabs() {
+        guard isOpen, !isClosing, mode != .apps, let view = islandView, let metrics = metrics else { return }
+        view.setTabs(visible: tabsAvailable?() ?? false, metrics: metrics)
+    }
+
+    /// From Now Playing or the Cocoon to the app switcher (you clicked the character).
     func switchToApps(previousApp: NSRunningApplication?) {
-        guard isOpen, !isClosing, mode == .nowPlaying, let geometry = geometry, let current = metrics,
+        guard isOpen, !isClosing, mode != .apps, let geometry = geometry, let current = metrics,
               let view = islandView
         else { return }
         rememberPreviousApp(previousApp)
@@ -108,6 +183,7 @@ final class IslandController: NSObject {
         isInteracting = false
         metrics = newMetrics
         panel?.setFrame(newMetrics.panelFrame, display: false)
+        view.setTabs(visible: false, metrics: newMetrics)
         view.switchMode(to: .apps, metrics: newMetrics)
         NSApp.activate()
         panel?.makeKey()
@@ -167,11 +243,17 @@ final class IslandController: NSObject {
         view.nowPlaying.onInteraction = { [weak self] active in
             self?.isInteracting = active
         }
+        view.onSelectTab = { [weak self] tab in
+            self?.switchHover(to: tab)
+        }
         islandPanel.contentView = view
         islandView = view
 
         islandPanel.orderFrontRegardless()
         view.expand(with: newMetrics, mode: mode)
+        if mode != .apps {
+            view.setTabs(visible: tabsAvailable?() ?? false, metrics: newMetrics)
+        }
         installClickMonitors()
     }
 
@@ -229,8 +311,26 @@ final class IslandController: NSObject {
     private func handleKey(_ event: NSEvent) -> Bool {
         guard let view = islandView else { return false }
         if event.keyCode == 53 { // Esc
+            CocoonModel.shared.pinnedOpen = false
             close(returnFocus: true)
             return true
+        }
+        if mode == .files {
+            let cocoon = CocoonModel.shared
+            guard !cocoon.selection.isEmpty else { return false }
+            switch event.keyCode {
+            case 49: // Space: Quick Look, like in Finder
+                cocoon.quickLook()
+                return true
+            case 36, 76: // Return: open
+                cocoon.open()
+                return true
+            case 51, 117: // Delete: take out of the Cocoon (the file itself stays)
+                cocoon.remove()
+                return true
+            default:
+                return false
+            }
         }
         guard mode == .apps else { return false }
         switch event.keyCode {
@@ -289,8 +389,13 @@ final class IslandController: NSObject {
     private func clicked(at point: NSPoint, inOtherApp: Bool) {
         guard isOpen, !isClosing, let currentMetrics = metrics else { return }
         guard !currentMetrics.islandScreenRect.contains(point) else { return }
-        // Clicks on SpiderNotch's own windows (like the character) are handled there.
-        if !inOtherApp && mode == .nowPlaying {
+        // Clicks on SpiderNotch's own windows (like the character, Quick Look or
+        // the AirDrop window) are handled there.
+        if !inOtherApp && mode != .apps {
+            return
+        }
+        // A pinned-open Cocoon stays until you unpin it or press Esc.
+        if mode == .files && CocoonModel.shared.pinnedOpen {
             return
         }
         // A click outside closes the island. If it landed in another app, that app

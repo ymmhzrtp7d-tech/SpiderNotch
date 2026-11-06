@@ -7,9 +7,15 @@
 //  Now Playing island when you hover while something plays, and opens the
 //  app switcher when you click the character.
 //
-//    hover the notch, nothing playing  → the character comes out
-//    hover the notch, media playing    → the Now Playing island opens and the
-//                                        character hangs just below it
+//    hover the notch                   → the island opens with the Cocoon (your file
+//                                        hub: drop files, AirDrop, pinned and recent
+//                                        files), and the character hangs below it.
+//                                        It never depends on anything playing.
+//    hover the notch, media playing    → the island opens on Now Playing instead,
+//                                        with a tab to switch to the Cocoon
+//    media stops while it's open       → the island switches to the Cocoon
+//    (Cocoon or "open on hover" off in Settings, nothing playing → only the character)
+//    drag files to the notch           → the Cocoon opens with its drop zones
 //    click the character               → the app switcher
 //    click the song / video            → jump to where it's playing
 //    move away                         → everything goes back into the notch
@@ -27,7 +33,11 @@ final class NotchController: NSObject {
     private var sticker: Sticker?
     private var settings = SpiderSettings.current()
     private let island = IslandController()
+    /// The small always-visible marker on screens without a real notch.
+    private let handle = NotchHandle()
     private let media = MediaCenter.shared
+    private let fileDrags = FileDragWatcher()
+    private let cocoon = CocoonModel.shared
 
     /// A character you're trying on ("Try on Notch"), shown until it goes back in.
     private var trialID: String?
@@ -48,6 +58,23 @@ final class NotchController: NSObject {
     private let leaveDelay: UInt64 = 350_000_000     // 0.35 seconds
     /// The same, while the Now Playing island is open (a little more forgiving).
     private let islandLeaveDelay: UInt64 = 450_000_000
+    /// The same, after you've clicked something in the Cocoon.
+    private let engagedLeaveDelay: UInt64 = 2_500_000_000
+
+    private var cocoonEnabled: Bool {
+        UserDefaults.standard.bool(forKey: Preferences.Key.cocoonEnabled)
+    }
+
+    /// Hovering opens the Cocoon (the always-available file hub), even when it's
+    /// empty and nothing is playing. Media only adds the Now Playing view on top.
+    private var cocoonOnHover: Bool {
+        cocoonEnabled && UserDefaults.standard.bool(forKey: Preferences.Key.cocoonOpenOnHover)
+    }
+
+    /// Something is playing that the Now Playing island can show.
+    private var mediaAvailable: Bool {
+        settings.nowPlaying && media.hasSomethingToShow && media.currentSession != nil
+    }
 
     // MARK: - Start & stop
 
@@ -74,12 +101,22 @@ final class NotchController: NSObject {
         island.onOpenMediaSource = { [weak self] session in
             self?.openMediaSource(session)
         }
+        island.tabsAvailable = { [weak self] in
+            guard let self = self else { return false }
+            return self.cocoonEnabled && self.settings.nowPlaying && self.media.hasSomethingToShow
+                && self.media.currentSession != nil
+        }
         island.start()
 
         media.onChange = { [weak self] in
-            self?.island.refreshNowPlaying()
+            self?.mediaChanged()
         }
         media.start()
+
+        fileDrags.onChange = { [weak self] dragging in
+            self?.fileDragChanged(dragging)
+        }
+        fileDrags.start()
 
         loadSticker()
         rebuild()
@@ -88,7 +125,9 @@ final class NotchController: NSObject {
 
     func stop() {
         watcher?.stop()
+        fileDrags.stop()
         island.close(returnFocus: false)
+        handle.hide()
         media.stop()
         NotificationCenter.default.removeObserver(self)
         NSWorkspace.shared.notificationCenter.removeObserver(self)
@@ -105,13 +144,22 @@ final class NotchController: NSObject {
             updateWatcher()
         }
         if !newSettings.nowPlaying && island.isOpen && island.mode == .nowPlaying {
+            // Now Playing is only an extra: fall back to the Cocoon when it's on.
+            if cocoonEnabled {
+                island.switchHover(to: .files)
+            } else {
+                island.close(returnFocus: false)
+            }
+        }
+        if !cocoonEnabled && island.isOpen && island.mode == .files {
             island.close(returnFocus: false)
         }
         if newSettings.characterID != old.characterID || newSettings.border != old.border {
             loadSticker()
             rebuild()
-        } else if newSettings.motionAndLooks != old.motionAndLooks {
-            rebuild() // size, speed, style, position, swing... changed
+        } else if newSettings.motionAndLooks != old.motionAndLooks
+                    || newSettings.enabled != old.enabled || newSettings.virtualNotch != old.virtualNotch {
+            rebuild() // size, speed, style, position, swing, on/off, pretend notch... changed
         }
     }
 
@@ -129,6 +177,7 @@ final class NotchController: NSObject {
             // No screen to use (no notch, and the pretend notch is switched off).
             self.geometry = nil
             self.layout = nil
+            self.handle.hide()
             self.stage?.hideNow()
             self.panel?.orderOut(nil)
             return
@@ -143,6 +192,7 @@ final class NotchController: NSObject {
         }
 
         let layout = StageLayout(geometry: geometry, settings: settings, sticker: sticker, extraDrop: extraDrop)
+        handle.update(geometry: geometry, visible: settings.enabled)
         self.geometry = geometry
         self.layout = layout
 
@@ -202,6 +252,18 @@ final class NotchController: NSObject {
         // everywhere else they pass straight through to your apps.
         setStickerClickable(isOut && stage.stickerContains(screenPoint: point))
 
+        // Dragging files towards the notch opens the Cocoon with its drop zones.
+        if fileDrags.isDraggingFiles && cocoonEnabled {
+            let dragZone = geometry.hotZone.insetBy(dx: -70, dy: -34)
+            if dragZone.contains(point) || (islandRect?.contains(point) ?? false) {
+                cocoon.isDraggingFiles = true
+                cancelRetract()
+                if !island.isOpen || island.mode != .files {
+                    openCocoon(explicit: false)
+                }
+            }
+        }
+
         // Quick exit: the cursor is far from the notch and nothing is happening.
         if !isOut && dropTask == nil && islandRect == nil && point.y < geometry.hotZone.minY - 60 {
             return
@@ -211,8 +273,8 @@ final class NotchController: NSObject {
         if let rect = islandRect, rect.insetBy(dx: -18, dy: -18).contains(point) {
             inside = true
         }
-        if island.isInteracting {
-            inside = true // dragging a slider: stay open even if the cursor slips outside
+        if island.holdsOpen {
+            inside = true // dragging a slider or files, or the Cocoon is pinned open
         }
         if inside {
             cancelRetract()
@@ -222,7 +284,8 @@ final class NotchController: NSObject {
         } else {
             cancelDrop()
             if (isOut || islandRect != nil) && retractTask == nil && Date() >= demoUntil {
-                scheduleRetract(after: islandRect != nil ? islandLeaveDelay : leaveDelay)
+                let delay = island.isEngaged ? engagedLeaveDelay : (islandRect != nil ? islandLeaveDelay : leaveDelay)
+                scheduleRetract(after: delay)
             }
         }
 
@@ -267,15 +330,19 @@ final class NotchController: NSObject {
     /// Brings the character out, and the Now Playing island too if something is playing.
     private func dropNow(allowMedia: Bool = true) {
         guard let stage = stage, let geometry = geometry else { return }
-        let showMedia = allowMedia && settings.enabled && settings.nowPlaying && !island.isOpen
-            && media.hasSomethingToShow && media.currentSession != nil
+        let choice = allowMedia && !island.isOpen
+            ? HoverIsland.choose(enabled: settings.enabled, mediaAvailable: mediaAvailable, cocoonOnHover: cocoonOnHover)
+            : .none
+        let showMedia = choice == .nowPlaying
+        let showFiles = choice == .files
 
         // Make room for the island before the character comes out.
+        // (Now Playing and the Cocoon are the same height, so this works for both.)
         if !stage.isOut {
             var wanted: CGFloat = 0
-            if showMedia {
+            if showMedia || showFiles {
                 wanted = IslandController.nowPlayingDepth(geometry: geometry)
-            } else if island.isOpen && island.mode == .nowPlaying {
+            } else if island.isOpen && island.mode != .apps {
                 wanted = island.depthBelowNotch
             }
             if wanted != extraDrop {
@@ -285,6 +352,8 @@ final class NotchController: NSObject {
         }
         if showMedia {
             island.openNowPlaying(geometry: geometry)
+        } else if showFiles {
+            island.openFiles(geometry: geometry)
         }
         guard let panel = panel, let current = self.stage else { return }
         panel.orderFrontRegardless()
@@ -295,7 +364,7 @@ final class NotchController: NSObject {
     private func retractNow() {
         guard let stage = stage else { return }
         setStickerClickable(false)
-        if island.isOpen && island.mode == .nowPlaying {
+        if island.isOpen && island.mode != .apps {
             island.close(returnFocus: false)
         }
         stage.climb { [weak self] in
@@ -319,8 +388,8 @@ final class NotchController: NSObject {
         // Remember the app you're using before SpiderNotch takes the focus.
         let previousApp = NSWorkspace.shared.frontmostApplication
         if island.isOpen {
-            // Now Playing is open: it turns into the app switcher.
-            guard island.mode == .nowPlaying else { return }
+            // Now Playing or the Cocoon is open: it turns into the app switcher.
+            guard island.mode != .apps else { return }
             cancelDrop()
             cancelRetract()
             demoUntil = Date().addingTimeInterval(1.0)
@@ -374,6 +443,55 @@ final class NotchController: NSObject {
             retractNow()
         }
         // If the cursor is still at the notch, the next mouse move brings it out again.
+    }
+
+    /// Media is only an extra: when it stops while the island shows Now Playing,
+    /// the island stays open and switches to the Cocoon instead of going empty.
+    private func mediaChanged() {
+        if island.isOpen && island.mode == .nowPlaying && !mediaAvailable && cocoonEnabled {
+            island.switchHover(to: .files)
+        }
+        island.refreshNowPlaying()
+        island.refreshTabs()
+    }
+
+    // MARK: - Cocoon
+
+    /// Opens the Cocoon, with the character hanging below it.
+    /// `explicit` (menu or shortcut): stays open until you click outside or press Esc.
+    func openCocoon(explicit: Bool) {
+        guard cocoonEnabled else { return }
+        if layout == nil {
+            rebuild()
+        }
+        guard let geometry = geometry else { return }
+        cancelDrop()
+        cancelRetract()
+        if island.isOpen && island.mode == .apps {
+            island.close(returnFocus: false)
+            return
+        }
+        if explicit {
+            cocoon.stayUntilClickOutside = true
+        }
+        let depth = IslandController.nowPlayingDepth(geometry: geometry)
+        if stage?.isOut != true && extraDrop != depth {
+            extraDrop = depth
+            rebuild()
+        }
+        island.openFiles(geometry: geometry, explicit: explicit)
+        if let panel = panel, let stage = stage, !stage.isOut {
+            panel.orderFrontRegardless()
+            stage.drop()
+        }
+    }
+
+    private func fileDragChanged(_ dragging: Bool) {
+        if !dragging {
+            cocoon.isDraggingFiles = false
+            cocoon.targetedZone = nil
+            cocoon.draggingID = nil
+        }
     }
 
     // MARK: - Demo
@@ -457,5 +575,17 @@ final class NotchController: NSObject {
                 retractNow()
             }
         }
+    }
+}
+
+/// What hovering the notch opens. Pure logic, so it's covered by the tests:
+/// the island must never depend on something playing.
+enum HoverIsland: Equatable {
+    case none, nowPlaying, files
+
+    static func choose(enabled: Bool, mediaAvailable: Bool, cocoonOnHover: Bool) -> HoverIsland {
+        guard enabled else { return .none }
+        if mediaAvailable { return .nowPlaying } // the Cocoon is one tab away
+        return cocoonOnHover ? .files : .none
     }
 }

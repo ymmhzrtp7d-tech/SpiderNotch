@@ -2,25 +2,34 @@
 //  IslandView.swift
 //  SpiderNotch
 //
-//  The black "Dynamic Island" that grows out of the notch. It shows either
-//  the app switcher or Now Playing. The black shape is a Core Animation layer
+//  The black island that grows out of the notch. It shows the app switcher,
+//  Now Playing, or the Cocoon (files you keep handy). The black shape is a Core Animation layer
 //  whose outline springs from notch-size to full size (and back), and from one
 //  size to another when it switches between the two, just like on iPhone.
 //
 
 import AppKit
 import QuartzCore
+import SwiftUI
 
 enum IslandMode {
     case apps
     case nowPlaying
+    /// The Cocoon: files you keep handy (CocoonView).
+    case files
 }
 
 @MainActor
 final class IslandView: NSView {
     let switcher: AppSwitcherView
     let nowPlaying: NowPlayingView
+    let cocoon: NSHostingView<CocoonView>
     private let backdrop: IslandBackdropView
+    /// Little tabs on either side of the notch: Now Playing ⟷ Cocoon.
+    private let mediaTab = IslandButton(symbol: "music.note", size: 12)
+    private let cocoonTab = IslandButton(symbol: "circle.hexagongrid.fill", size: 12)
+    /// You clicked one of the tabs.
+    var onSelectTab: (@MainActor (IslandMode) -> Void)?
     private(set) var mode: IslandMode = .apps
     /// Clicks that land beside the island (in its shadow) go here, so the
     /// character hanging below can still be clicked.
@@ -30,16 +39,51 @@ final class IslandView: NSView {
     init(frame frameRect: NSRect, apps: RunningApps) {
         switcher = AppSwitcherView(frame: .zero, apps: apps)
         nowPlaying = NowPlayingView(frame: .zero)
+        cocoon = NSHostingView(rootView: CocoonView(model: CocoonModel.shared))
         backdrop = IslandBackdropView(frame: NSRect(origin: .zero, size: frameRect.size))
         super.init(frame: frameRect)
         wantsLayer = true
+        cocoon.appearance = NSAppearance(named: .darkAqua)
         addSubview(backdrop)
-        addSubview(switcher)
-        addSubview(nowPlaying)
-        switcher.alphaValue = 0
-        nowPlaying.alphaValue = 0
-        switcher.isHidden = true
-        nowPlaying.isHidden = true
+        for view in [switcher, nowPlaying, cocoon] as [NSView] {
+            addSubview(view)
+            view.alphaValue = 0
+            view.isHidden = true
+        }
+        mediaTab.onPress = { [weak self] in self?.onSelectTab?(.nowPlaying) }
+        cocoonTab.onPress = { [weak self] in self?.onSelectTab?(.files) }
+        mediaTab.toolTip = "Now Playing"
+        cocoonTab.toolTip = "Cocoon: your files"
+        for tab in [mediaTab, cocoonTab] {
+            tab.isHidden = true
+            tab.alphaValue = 0
+            addSubview(tab)
+        }
+    }
+
+    private var tabsVisible = false
+
+    /// Shows the tabs beside the notch (only when both Now Playing and the Cocoon are available).
+    func setTabs(visible: Bool, metrics: IslandMetrics) {
+        let side: CGFloat = 26
+        let y = metrics.notchRect.midY - side / 2
+        mediaTab.frame = NSRect(x: metrics.notchRect.minX - side - 12, y: y, width: side, height: side)
+        cocoonTab.frame = NSRect(x: metrics.notchRect.maxX + 12, y: y, width: side, height: side)
+        tabsVisible = visible
+        if visible {
+            mediaTab.isHidden = false
+            cocoonTab.isHidden = false
+        }
+        updateTabHighlight()
+    }
+
+    /// The tab for what's showing is bright; the other one is dimmed.
+    private func updateTabHighlight() {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            mediaTab.animator().alphaValue = tabsVisible ? (mode == .nowPlaying ? 1 : 0.4) : 0
+            cocoonTab.animator().alphaValue = tabsVisible ? (mode == .files ? 1 : 0.4) : 0
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -71,7 +115,11 @@ final class IslandView: NSView {
     }
 
     private func content(for mode: IslandMode) -> NSView {
-        mode == .apps ? switcher : nowPlaying
+        switch mode {
+        case .apps: return switcher
+        case .nowPlaying: return nowPlaying
+        case .files: return cocoon
+        }
     }
 
     /// Grows the island out of the notch, then fades its content in.
@@ -83,17 +131,21 @@ final class IslandView: NSView {
         backdrop.morph(to: IslandShape.island(metrics.islandRect), bouncy: true)
 
         let shown = content(for: mode)
-        let other = content(for: mode == .apps ? .nowPlaying : .apps)
-        other.isHidden = true
-        other.alphaValue = 0
+        for other in [switcher, nowPlaying, cocoon] as [NSView] where other !== shown {
+            other.isHidden = true
+            other.alphaValue = 0
+        }
         shown.frame = metrics.contentRect
         shown.isHidden = false
         shown.alphaValue = 0
-        if mode == .apps {
+        switch mode {
+        case .apps:
             switcher.reloadApps()
             switcher.scrollToActive()
-        } else {
+        case .nowPlaying:
             nowPlaying.startTicking()
+        case .files:
+            CocoonModel.shared.willAppear()
         }
 
         Task { @MainActor [weak self] in
@@ -112,13 +164,20 @@ final class IslandView: NSView {
         mode = newMode
         islandRect = metrics.islandRect
         backdrop.morph(to: IslandShape.island(metrics.islandRect), bouncy: true)
-        if newMode == .apps {
+        nowPlaying.stopTicking()
+        switch newMode {
+        case .apps:
             switcher.reloadApps()
             switcher.scrollToActive()
-            nowPlaying.stopTicking()
-        } else {
+        case .nowPlaying:
             nowPlaying.startTicking()
+        case .files:
+            CocoonModel.shared.willAppear()
         }
+        if old === cocoon {
+            CocoonModel.shared.didDisappear()
+        }
+        updateTabHighlight()
         fadeOut(old)
         new.frame = metrics.contentRect
         new.isHidden = false
@@ -155,10 +214,15 @@ final class IslandView: NSView {
     /// Fades the content out and shrinks the island back into the notch.
     func collapse(with metrics: IslandMetrics, completion: @escaping @MainActor @Sendable () -> Void) {
         nowPlaying.stopTicking()
+        if mode == .files {
+            CocoonModel.shared.didDisappear()
+        }
         let shown = content(for: mode)
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.12
             shown.animator().alphaValue = 0
+            mediaTab.animator().alphaValue = 0
+            cocoonTab.animator().alphaValue = 0
         }
         backdrop.morph(to: IslandShape.notch(metrics.notchRect), bouncy: false)
         Task { @MainActor in

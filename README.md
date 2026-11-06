@@ -30,6 +30,7 @@
 
 - **46 characters** in 8 categories (pets, farm, forest, jungle, water, night, dinos, and the classic spider), each with blinking and smiling faces. Or make a **sticker from your own photo**: crop, zoom, remove the background, add a ring.
 - **Hover the notch** and your character drops down on a thread, peeks out, or pops out and floats. Bump it with the cursor and it swings.
+- **Cocoon file hub**: hovering always opens the island, even when nothing is playing. Drag files onto the notch to keep, pin or AirDrop them; open, preview, reveal or copy them from the island.
 - **Click it** and an island springs out of the notch with all your open apps. Click one to switch (or use ← → and Return).
 - **Now Playing**: while music or a video plays (Music, Spotify, Safari, Chrome, YouTube, and any app that reports to macOS), hovering shows the artwork, title, a seek bar, play/pause, next/previous and volume. Click the title to jump to the exact tab or track.
 - **Works without a notch** too: external displays get a small pretend notch.
