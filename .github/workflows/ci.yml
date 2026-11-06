@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Cache Sparkle download
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: vendor
           key: sparkle-${{ hashFiles('scripts/release.conf') }}
